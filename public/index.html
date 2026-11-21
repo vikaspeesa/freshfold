@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FreshFold</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+</head>
+<body class="bg-slate-50">
+
+<div class="max-w-md mx-auto bg-white min-h-screen shadow-2xl">
+
+  <!-- LANDING -->
+  <div id="landing" class="screen active">
+    <div class="bg-gradient-to-br from-teal-500 to-cyan-600 text-white p-6 pb-12">
+      <div class="flex items-center gap-2 mb-8">
+        <div class="w-11 h-11 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center font-bold text-lg">FF</div>
+        <span class="font-bold text-xl">FreshFold</span>
+      </div>
+      <h1 class="text-3xl font-bold leading-tight">Clean clothes.<br>Zero hassle.</h1>
+      <p class="text-teal-100 mt-2 text-sm">Pickup & delivery laundry service</p>
+    </div>
+    <div class="px-5 -mt-6">
+      <div class="bg-white rounded-3xl shadow-xl p-5 space-y-3">
+        <button onclick="show('register')" class="w-full bg-teal-500 hover:bg-teal-600 text-white py-4 rounded-2xl font-semibold transition">Create Account</button>
+        <button onclick="show('login')" class="w-full border-2 border-teal-500 text-teal-600 py-4 rounded-2xl font-semibold">Login</button>
+      </div>
+      <div class="grid grid-cols-2 gap-3 mt-6">
+        <div class="bg-white p-4 rounded-2xl shadow-sm text-center border"><div class="text-3xl">🧺</div><div class="text-sm font-medium mt-1">Wash & Fold</div></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm text-center border"><div class="text-3xl">👔</div><div class="text-sm font-medium mt-1">Dry Clean</div></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm text-center border"><div class="text-3xl">🔥</div><div class="text-sm font-medium mt-1">Ironing</div></div>
+        <div class="bg-white p-4 rounded-2xl shadow-sm text-center border"><div class="text-3xl">⚡</div><div class="text-sm font-medium mt-1">Express</div></div>
+      </div>
+      <div class="text-center text-xs text-gray-400 mt-8 mb-6">
+        <button onclick="show('sup-login')" class="underline">Supervisor</button> · 
+        <button onclick="show('admin-login')" class="underline">Admin</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGISTER / LOGIN (same as before) -->
+  <div id="register" class="screen p-6">
+    <button onclick="show('landing')" class="text-teal-600 mb-6">← Back</button>
+    <h2 class="text-2xl font-bold mb-6">Create Account</h2>
+    <input id="reg-name" placeholder="Full Name" class="w-full p-4 border rounded-2xl mb-3">
+    <input id="reg-mobile" placeholder="Mobile Number" class="w-full p-4 border rounded-2xl mb-3">
+    <input id="reg-pass" type="password" placeholder="Password" class="w-full p-4 border rounded-2xl mb-4">
+    <button onclick="register()" class="w-full bg-teal-500 text-white py-4 rounded-2xl font-semibold">Register</button>
+  </div>
+
+  <div id="login" class="screen p-6">
+    <button onclick="show('landing')" class="text-teal-600 mb-6">← Back</button>
+    <h2 class="text-2xl font-bold mb-6">Welcome Back</h2>
+    <input id="login-mobile" placeholder="Mobile" class="w-full p-4 border rounded-2xl mb-3">
+    <input id="login-pass" type="password" placeholder="Password" class="w-full p-4 border rounded-2xl mb-4">
+    <button onclick="login()" class="w-full bg-teal-600 text-white py-4 rounded-2xl font-semibold">Login</button>
+  </div>
+
+  <!-- HOME -->
+  <div id="home" class="screen pb-24">
+    <div class="bg-teal-500 text-white p-5">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="text-sm opacity-80">Hello</div>
+          <div class="font-bold text-xl" id="user-name">Customer</div>
+        </div>
+        <button onclick="logout()" class="text-sm bg-white/20 px-4 py-1.5 rounded-full">Logout</button>
+      </div>
+    </div>
+    <div class="p-5">
+      <button onclick="show('neworder')" class="w-full bg-teal-500 text-white py-4 rounded-2xl font-semibold shadow-lg">Schedule Pickup</button>
+    </div>
+    <div class="px-5">
+      <h3 class="font-semibold mb-3">Stores</h3>
+      <div id="home-stores" class="space-y-3"></div>
+    </div>
+  </div>
+
+  <!-- NEW ORDER -->
+  <div id="neworder" class="screen pb-24">
+    <div class="p-4 border-b flex items-center gap-3"><button onclick="show('home')" class="text-xl">←</button><b>New Order</b></div>
+    <div class="p-5 space-y-3">
+      <input id="oname" placeholder="Name" class="w-full p-4 border rounded-2xl">
+      <input id="omobile" placeholder="Mobile" class="w-full p-4 border rounded-2xl">
+      <select id="ostore" class="w-full p-4 border rounded-2xl"></select>
+      <select id="otype" class="w-full p-4 border rounded-2xl">
+        <option value="normal">Normal</option>
+        <option value="express">Express (+₹50)</option>
+      </select>
+      <div class="flex gap-2">
+        <select id="oitem" class="flex-1 p-4 border rounded-2xl"><option>Shirt</option><option>Pant</option><option>Saree</option></select>
+        <input id="oqty" type="number" value="1" class="w-20 p-4 border rounded-2xl">
+      </div>
+      <button onclick="addToCart()" class="w-full bg-teal-50 text-teal-700 py-3 rounded-2xl">+ Add Item</button>
+      <div id="ocart" class="text-sm bg-gray-50 p-4 rounded-2xl min-h-[40px]"></div>
+      <button onclick="submitOrder()" class="w-full bg-teal-600 text-white py-4 rounded-2xl font-semibold">Place Order</button>
+    </div>
+  </div>
+
+  <!-- ORDERS with Cancel -->
+  <div id="orders" class="screen pb-24">
+    <div class="p-4 border-b font-semibold">My Orders</div>
+    <div id="my-orders" class="p-4 space-y-3"></div>
+  </div>
+
+  <!-- ADMIN LOGIN -->
+  <div id="admin-login" class="screen p-6">
+    <button onclick="show('landing')" class="text-teal-600 mb-4">←</button>
+    <h2 class="text-xl font-bold mb-4">Admin</h2>
+    <input id="admin-password" type="password" placeholder="Password" class="w-full p-4 border rounded-2xl mb-4">
+    <button onclick="doAdminLogin()" class="w-full bg-gray-900 text-white py-4 rounded-2xl">Login</button>
+    <p class="text-xs text-center text-gray-400 mt-2">admin123</p>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="admin" class="screen pb-10">
+    <div class="bg-gray-900 text-white p-4 flex justify-between items-center">
+      <b>Admin Dashboard</b>
+      <button onclick="show('landing')" class="text-sm">Logout</button>
+    </div>
+    <div class="p-4">
+      <div class="flex gap-2 mb-4">
+        <input id="new-store-name" placeholder="New store name" class="flex-1 p-3 border rounded-2xl">
+        <button onclick="createStore()" class="bg-teal-500 text-white px-5 rounded-2xl">Add</button>
+      </div>
+      <div id="admin-store-list" class="space-y-2 mb-6"></div>
+      <h3 class="font-semibold mb-2">Recent Orders</h3>
+      <div id="admin-order-list" class="space-y-2 text-sm"></div>
+    </div>
+  </div>
+
+  <!-- SUPERVISOR -->
+  <div id="sup-login" class="screen p-6">
+    <button onclick="show('landing')" class="text-teal-600 mb-4">←</button>
+    <h2 class="text-xl font-bold mb-4">Supervisor</h2>
+    <select id="sup-store-select" class="w-full p-4 border rounded-2xl mb-3"></select>
+    <input id="sup-password" type="password" placeholder="Password" class="w-full p-4 border rounded-2xl mb-4">
+    <button onclick="supLogin()" class="w-full bg-teal-600 text-white py-4 rounded-2xl">Login</button>
+    <p class="text-xs text-center text-gray-400 mt-2">store123</p>
+  </div>
+
+  <div id="supervisor" class="screen pb-10">
+    <div class="bg-teal-600 text-white p-4 flex justify-between">
+      <b id="sup-store-name">Store</b>
+      <button onclick="show('landing')" class="text-sm">Logout</button>
+    </div>
+    <div id="sup-order-list" class="p-4 space-y-3"></div>
+  </div>
+
+  <div id="bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around py-4 text-xs max-w-md mx-auto hidden shadow">
+    <button onclick="show('home')">🏠 Home</button>
+    <button onclick="showOrders()">📋 Orders</button>
+    <button onclick="show('neworder')">➕ New</button>
+  </div>
+</div>
+
+<script>
+const sb = supabase.createClient('https://yxzffmqvkrldhmmcmaiz.supabase.co', 'sb_publishable_gkVCN1texoQ83Np2sZp9Zg_AgDDxkfk');
+const BACKEND = 'http://localhost:3001'; // change when deployed
+let currentUser = JSON.parse(localStorage.getItem('ff-user') || 'null');
+let cart = [];
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('bottom-nav').classList.toggle('hidden', !['home','neworder','orders'].includes(id));
+  if (id === 'home') { document.getElementById('user-name').textContent = currentUser?.name || 'Guest'; loadHomeStores(); }
+  if (id === 'neworder') loadStoreSelect();
+  if (id === 'admin') loadAdminData();
+  if (id === 'sup-login') loadSupStores();
+}
+
+function doAdminLogin() {
+  if (document.getElementById('admin-password').value === 'admin123') show('admin');
+  else alert('Wrong password');
+}
+
+function register() {
+  const name = document.getElementById('reg-name').value.trim();
+  const mobile = document.getElementById('reg-mobile').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  if (!name || !mobile || !pass) return alert('Fill all');
+  const users = JSON.parse(localStorage.getItem('ff-users') || '[]');
+  if (users.find(u => u.mobile === mobile)) return alert('Already exists');
+  users.push({name, mobile, pass});
+  localStorage.setItem('ff-users', JSON.stringify(users));
+  alert('Registered');
+  show('login');
+}
+
+function login() {
+  const mobile = document.getElementById('login-mobile').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const users = JSON.parse(localStorage.getItem('ff-users') || '[]');
+  const user = users.find(u => u.mobile === mobile && u.pass === pass);
+  if (!user) return alert('Invalid');
+  currentUser = user;
+  localStorage.setItem('ff-user', JSON.stringify(user));
+  show('home');
+}
+
+function logout() { currentUser = null; localStorage.removeItem('ff-user'); show('landing'); }
+
+async function loadHomeStores() {
+  const { data } = await sb.from('stores').select('*');
+  document.getElementById('home-stores').innerHTML = (data||[]).map(s => `
+    <div class="bg-white border p-4 rounded-2xl shadow-sm">${s.name}</div>
+  `).join('') || '<p class="text-gray-400">No stores</p>';
+}
+
+async function loadStoreSelect() {
+  const { data } = await sb.from('stores').select('*');
+  document.getElementById('ostore').innerHTML = (data||[]).map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function addToCart() {
+  const item = document.getElementById('oitem').value;
+  const qty = +document.getElementById('oqty').value || 1;
+  cart.push({item, qty});
+  document.getElementById('ocart').innerHTML = cart.map(i => `${i.qty}× ${i.item}`).join('<br>') || 'No items';
+}
+
+async function submitOrder() {
+  if (!currentUser) return alert('Login first');
+  if (!cart.length) return alert('Add items');
+  const order = {
+    id: 'LC' + Date.now().toString().slice(-6),
+    customer_name: document.getElementById('oname').value || currentUser.name,
+    mobile: document.getElementById('omobile').value || currentUser.mobile,
+    total: cart.reduce((s,i)=>s + i.qty*40, 0) + (document.getElementById('otype').value==='express'?50:0),
+    type: document.getElementById('otype').value,
+    status: 'Pickup Scheduled',
+    store_id: document.getElementById('ostore').value,
+    created_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('orders').insert([order]);
+  if (error) return alert(error.message);
+  cart = [];
+  alert('Order placed!');
+  showOrders();
+}
+
+function canCancel(order) {
+  if (!order.created_at) return false;
+  const mins = (Date.now() - new Date(order.created_at)) / 60000;
+  return mins <= 60 && order.status !== 'Delivered' && order.status !== 'Cancelled';
+}
+function cancelFee(order) {
+  const mins = (Date.now() - new Date(order.created_at)) / 60000;
+  if (mins <= 15) return 0;
+  if (mins <= 30) return Math.round(order.total * 0.1);
+  if (mins <= 60) return Math.round(order.total * 0.25);
+  return order.total;
+}
+
+async function showOrders() {
+  show('orders');
+  const { data } = await sb.from('orders').select('*, stores(name)').eq('mobile', currentUser?.mobile||'').order('created_at',{ascending:false});
+  document.getElementById('my-orders').innerHTML = (data||[]).map(o => {
+    const cancelable = canCancel(o);
+    const fee = cancelable ? cancelFee(o) : 0;
+    return `
+      <div class="bg-white border p-4 rounded-2xl shadow-sm">
+        <div class="flex justify-between items-start">
+          <div><b>#${o.id}</b><div class="text-xs text-gray-500">${o.stores?.name||''}</div></div>
+          <span class="text-xs px-2 py-1 rounded-full ${o.status==='Delivered'?'bg-green-100 text-green-700':'bg-teal-100 text-teal-700'}">${o.status}</span>
+        </div>
+        <div class="text-sm mt-1">₹${o.total} • ${o.type}</div>
+        ${cancelable ? `<div class="text-xs text-amber-600 mt-2">Cancel fee: ₹${fee} • Refund: ₹${o.total-fee}</div>
+        <button onclick="cancelOrder('${o.id}',${fee})" class="mt-2 w-full bg-red-500 text-white text-sm py-2 rounded-xl">Cancel Order</button>` : ''}
+      </div>`;
+  }).join('') || '<p class="text-center text-gray-400 py-10">No orders</p>';
+}
+
+async function cancelOrder(id, fee) {
+  if (!confirm(fee ? `Cancel with ₹${fee} fee?` : 'Cancel for free?')) return;
+  await sb.from('orders').update({ status: 'Cancelled', cancel_fee: fee }).eq('id', id);
+  alert('Order cancelled');
+  showOrders();
+}
+
+async function loadAdminData() {
+  const { data: stores } = await sb.from('stores').select('*');
+  document.getElementById('admin-store-list').innerHTML = (stores||[]).map(s => `<div class="border p-3 rounded-2xl">${s.name}</div>`).join('');
+  const { data: orders } = await sb.from('orders').select('*').order('created_at',{ascending:false}).limit(10);
+  document.getElementById('admin-order-list').innerHTML = (orders||[]).map(o => `<div class="border-b py-2 text-sm">#${o.id} • ₹${o.total} • ${o.status}</div>`).join('');
+}
+
+async function createStore() {
+  const name = document.getElementById('new-store-name').value.trim();
+  if (!name) return;
+  await sb.from('stores').insert([{name}]);
+  document.getElementById('new-store-name').value = '';
+  loadAdminData();
+}
+
+async function loadSupStores() {
+  const { data } = await sb.from('stores').select('*');
+  document.getElementById('sup-store-select').innerHTML = (data||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+function supLogin() {
+  if (document.getElementById('sup-password').value !== 'store123') return alert('Wrong');
+  const sid = document.getElementById('sup-store-select').value;
+  show('supervisor');
+  loadSupOrders(sid);
+}
+
+async function loadSupOrders(storeId) {
+  const { data: st } = await sb.from('stores').select('name').eq('id', storeId).single();
+  document.getElementById('sup-store-name').textContent = st?.name || 'Store';
+  const { data } = await sb.from('orders').select('*').eq('store_id', storeId);
+  document.getElementById('sup-order-list').innerHTML = (data||[]).map(o => `
+    <div class="border p-4 rounded-2xl">
+      <div class="flex justify-between">
+        <div><b>#${o.id}</b><div class="text-xs">${o.customer_name}</div></div>
+        <select onchange="updateStatus('${o.id}', this.value, '${o.mobile}')" class="text-xs border rounded p-1">
+          ${['Pickup Scheduled','Processing','Ready','Delivered'].map(s=>`<option ${o.status===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+  `).join('') || '<p class="text-gray-400">No orders</p>';
+}
+
+async function updateStatus(id, status, mobile) {
+  await sb.from('orders').update({ status }).eq('id', id);
+  // Send SMS via backend
+  try {
+    await fetch(BACKEND + '/api/send-status-sms', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ mobile, orderId: id, status })
+    });
+  } catch(e) { console.log('SMS backend not running'); }
+  alert('Status updated' + (mobile ? ' & SMS sent' : ''));
+  // reload current supervisor view if needed
+}
+
+if (currentUser) show('home'); else show('landing');
+</script>
+</body>
+</html>

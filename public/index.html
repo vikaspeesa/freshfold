@@ -104,9 +104,27 @@
     </div>
   </div>
 
-  <!-- ORDERS with Cancel -->
+  <!-- ORDER DETAIL -->
+  <div id="order-detail" class="screen pb-20">
+    <div class="p-4 border-b flex items-center gap-3 bg-white">
+      <button onclick="goBackFromDetail()" class="text-xl">←</button>
+      <b>Order Details</b>
+    </div>
+    <div id="order-detail-body" class="p-4 text-sm"></div>
+  </div>
   <div id="orders" class="screen pb-24">
-    <div class="p-4 border-b font-semibold">My Orders</div>
+    <div class="p-4 border-b font-semibold bg-white">Order History</div>
+    <div class="px-4 pt-3">
+      <input id="order-search" oninput="searchOrders()" placeholder="Search by Order ID or Store..." class="w-full p-3 border rounded-2xl text-sm">
+    </div>
+    <div class="px-4 pt-2 flex gap-2 overflow-x-auto text-xs">
+      <button onclick="filterOrders('all')" class="filter-btn px-3 py-1.5 rounded-full bg-teal-500 text-white">All</button>
+      <button onclick="filterOrders('Pickup Scheduled')" class="filter-btn px-3 py-1.5 rounded-full bg-gray-100">Pending</button>
+      <button onclick="filterOrders('Processing')" class="filter-btn px-3 py-1.5 rounded-full bg-gray-100">Processing</button>
+      <button onclick="filterOrders('Ready')" class="filter-btn px-3 py-1.5 rounded-full bg-gray-100">Ready</button>
+      <button onclick="filterOrders('Delivered')" class="filter-btn px-3 py-1.5 rounded-full bg-gray-100">Delivered</button>
+      <button onclick="filterOrders('Cancelled')" class="filter-btn px-3 py-1.5 rounded-full bg-gray-100">Cancelled</button>
+    </div>
     <div id="my-orders" class="p-4 space-y-3"></div>
   </div>
 
@@ -119,7 +137,14 @@
     <p class="text-xs text-center text-gray-400 mt-2">admin123</p>
   </div>
 
-  <!-- ADMIN -->
+  <!-- STORE DETAIL (Admin) -->
+  <div id="store-detail" class="screen pb-10">
+    <div class="bg-gray-900 text-white p-4 flex items-center gap-3">
+      <button onclick="show('admin')" class="text-xl">←</button>
+      <b id="detail-store-name">Store</b>
+    </div>
+    <div id="store-detail-body" class="p-4 space-y-4 text-sm"></div>
+  </div>
   <div id="admin" class="screen pb-10">
     <div class="bg-gray-900 text-white p-4 flex justify-between items-center">
       <b>Admin Dashboard</b>
@@ -247,11 +272,48 @@ async function submitOrder() {
   showOrders();
 }
 
+let lastScreen = 'orders';
+
+function goBackFromDetail() {
+  show(lastScreen);
+}
+
+async function openOrderDetail(id) {
+  lastScreen = document.querySelector('.screen.active')?.id || 'orders';
+  const { data: o } = await sb.from('orders').select('*, stores(name)').eq('id', id).single();
+  if (!o) return alert('Order not found');
+
+  const cancelable = canCancel(o);
+  const fee = cancelable ? cancelFee(o) : 0;
+
+  document.getElementById('order-detail-body').innerHTML = `
+    <div class="bg-white border rounded-2xl p-4 space-y-2">
+      <div class="flex justify-between items-center">
+        <div class="font-bold text-lg">#${o.id}</div>
+        <span class="text-xs px-2 py-1 rounded-full bg-teal-100 text-teal-700">${o.status}</span>
+      </div>
+      <div><b>Customer:</b> ${o.customer_name}</div>
+      <div><b>Mobile:</b> ${o.mobile}</div>
+      <div><b>Store:</b> ${o.stores?.name || '—'}</div>
+      <div><b>Type:</b> ${o.type}</div>
+      <div><b>Total:</b> ₹${o.total}</div>
+      <div><b>Placed:</b> ${o.created_at ? new Date(o.created_at).toLocaleString() : '—'}</div>
+      ${o.cancel_fee ? `<div class="text-red-600"><b>Cancel Fee:</b> ₹${o.cancel_fee}</div>` : ''}
+      ${cancelable ? `
+        <div class="mt-3 p-3 bg-amber-50 rounded-xl text-xs">
+          Cancellation fee: ₹${fee}<br>Refund: ₹${o.total - fee}
+        </div>
+        <button onclick="cancelOrder('${o.id}', ${fee})" class="w-full bg-red-500 text-white py-2 rounded-xl mt-2">Cancel Order</button>
+      ` : ''}
+    </div>
+  `;
+  show('order-detail');
 function canCancel(order) {
   if (!order.created_at) return false;
   const mins = (Date.now() - new Date(order.created_at)) / 60000;
   return mins <= 60 && order.status !== 'Delivered' && order.status !== 'Cancelled';
 }
+
 function cancelFee(order) {
   const mins = (Date.now() - new Date(order.created_at)) / 60000;
   if (mins <= 15) return 0;
@@ -260,23 +322,84 @@ function cancelFee(order) {
   return order.total;
 }
 
+let allMyOrders = [];
+let currentFilter = 'all';
+
 async function showOrders() {
   show('orders');
   const { data } = await sb.from('orders').select('*, stores(name)').eq('mobile', currentUser?.mobile||'').order('created_at',{ascending:false});
-  document.getElementById('my-orders').innerHTML = (data||[]).map(o => {
+  allMyOrders = data || [];
+  renderFilteredOrders();
+}
+
+function filterOrders(status) {
+  currentFilter = status;
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.remove('bg-teal-500', 'text-white');
+    btn.classList.add('bg-gray-100');
+  });
+  event.target.classList.remove('bg-gray-100');
+  event.target.classList.add('bg-teal-500', 'text-white');
+  renderFilteredOrders();
+}
+
+// ========== Useful Regex Patterns ==========
+const PATTERNS = {
+  mobile: /^[6-9]\d{9}$/,                    // Indian mobile
+  orderId: /^LC\d{6}$/,                      // Order ID like LC123456
+  name: /^[a-zA-Z\s]{2,50}$/,                // Name
+  amount: /^\d+(\.\d{1,2})?$/                // Amount
+};
+
+function isValidMobile(num) {
+  return PATTERNS.mobile.test(num.replace(/\s/g, ''));
+}
+
+// Example usage in search or validation:
+// if (!isValidMobile(mobile)) alert('Enter valid 10-digit mobile');
+
+function fuzzyMatch(text, query) {
+  if (!query) return true;
+  text = (text || '').toLowerCase();
+  query = query.toLowerCase();
+  let qi = 0;
+  for (let i = 0; i < text.length && qi < query.length; i++) {
+    if (text[i] === query[qi]) qi++;
+  }
+  return qi === query.length;
+}
+
+function searchOrders() {
+  const q = document.getElementById('order-search').value.trim();
+  const filtered = allMyOrders.filter(o => {
+    const matchStatus = currentFilter === 'all' || o.status === currentFilter;
+    const matchSearch = !q || 
+      fuzzyMatch(o.id, q) || 
+      fuzzyMatch(o.stores?.name, q) ||
+      fuzzyMatch(o.status, q) ||
+      fuzzyMatch(o.customer_name, q);
+    return matchStatus && matchSearch;
+  });
+  renderOrderList(filtered);
+}
+
+function renderFilteredOrders() {
+  searchOrders(); // reuse search which also applies filter
+}
+
+function renderOrderList(list) {
+  document.getElementById('my-orders').innerHTML = list.map(o => {
     const cancelable = canCancel(o);
-    const fee = cancelable ? cancelFee(o) : 0;
     return `
-      <div class="bg-white border p-4 rounded-2xl shadow-sm">
+      <div onclick="openOrderDetail('${o.id}')" class="bg-white border p-4 rounded-2xl shadow-sm cursor-pointer">
         <div class="flex justify-between items-start">
           <div><b>#${o.id}</b><div class="text-xs text-gray-500">${o.stores?.name||''}</div></div>
-          <span class="text-xs px-2 py-1 rounded-full ${o.status==='Delivered'?'bg-green-100 text-green-700':'bg-teal-100 text-teal-700'}">${o.status}</span>
+          <span class="text-xs px-2 py-1 rounded-full ${o.status==='Delivered'?'bg-green-100 text-green-700':o.status==='Cancelled'?'bg-red-100 text-red-700':'bg-teal-100 text-teal-700'}">${o.status}</span>
         </div>
         <div class="text-sm mt-1">₹${o.total} • ${o.type}</div>
-        ${cancelable ? `<div class="text-xs text-amber-600 mt-2">Cancel fee: ₹${fee} • Refund: ₹${o.total-fee}</div>
-        <button onclick="cancelOrder('${o.id}',${fee})" class="mt-2 w-full bg-red-500 text-white text-sm py-2 rounded-xl">Cancel Order</button>` : ''}
+        ${cancelable ? `<div class="text-xs text-amber-600 mt-1">Cancel available</div>` : ''}
       </div>`;
-  }).join('') || '<p class="text-center text-gray-400 py-10">No orders</p>';
+  }).join('') || '<p class="text-center text-gray-400 py-10">No matching orders</p>';
 }
 
 async function cancelOrder(id, fee) {
@@ -287,6 +410,49 @@ async function cancelOrder(id, fee) {
 }
 
 async function loadAdminData() {
+  const { data: stores } = await sb.from('stores').select('*');
+  document.getElementById('admin-store-list').innerHTML = (stores || []).map(s => `
+    <div onclick="openStoreDetail('${s.id}')" class="border p-4 rounded-2xl cursor-pointer hover:bg-gray-50 active:bg-gray-100">
+      <div class="font-medium">${s.name}</div>
+      <div class="text-xs text-gray-500">${s.area || 'Tap to view details'}</div>
+    </div>
+  `).join('') || '<p class="text-gray-400">No stores</p>';
+
+  const { data: orders } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(8);
+  document.getElementById('admin-order-list').innerHTML = (orders || []).map(o => `
+    <div class="border-b py-2">#${o.id} • ₹${o.total} • ${o.status}</div>
+  `).join('');
+}
+
+async function openStoreDetail(storeId) {
+  const { data: store } = await sb.from('stores').select('*').eq('id', storeId).single();
+  const { data: orders } = await sb.from('orders').select('*').eq('store_id', storeId);
+
+  const completed = orders?.filter(o => o.status === 'Delivered') || [];
+  const inProgress = orders?.filter(o => ['Processing', 'Ready'].includes(o.status)) || [];
+  const pending = orders?.filter(o => o.status === 'Pickup Scheduled') || [];
+  const cancelled = orders?.filter(o => o.status === 'Cancelled') || [];
+
+  const sum = arr => arr.reduce((s, o) => s + (o.total || 0), 0);
+
+  document.getElementById('detail-store-name').textContent = store?.name || 'Store';
+  document.getElementById('store-detail-body').innerHTML = `
+    <div class="grid grid-cols-2 gap-3 text-center">
+      <div class="bg-green-50 p-3 rounded-2xl"><div class="text-xl font-bold">${completed.length}</div><div class="text-xs">Completed</div><div class="text-xs text-green-700">₹${sum(completed)}</div></div>
+      <div class="bg-blue-50 p-3 rounded-2xl"><div class="text-xl font-bold">${inProgress.length}</div><div class="text-xs">In Progress</div><div class="text-xs text-blue-700">₹${sum(inProgress)}</div></div>
+      <div class="bg-amber-50 p-3 rounded-2xl"><div class="text-xl font-bold">${pending.length}</div><div class="text-xs">Pickup Pending</div><div class="text-xs text-amber-700">₹${sum(pending)}</div></div>
+      <div class="bg-red-50 p-3 rounded-2xl"><div class="text-xl font-bold">${cancelled.length}</div><div class="text-xs">Cancelled</div><div class="text-xs text-red-700">₹${sum(cancelled)}</div></div>
+    </div>
+    <div class="font-medium">All Orders (${orders?.length || 0})</div>
+    ${(orders || []).slice(0, 15).map(o => `
+      <div class="border-b py-2 flex justify-between">
+        <span>#${o.id}</span>
+        <span>₹${o.total} • ${o.status}</span>
+      </div>
+    `).join('') || '<p class="text-gray-400">No orders</p>'}
+  `;
+  show('store-detail');
+}
   const { data: stores } = await sb.from('stores').select('*');
   document.getElementById('admin-store-list').innerHTML = (stores||[]).map(s => `<div class="border p-3 rounded-2xl">${s.name}</div>`).join('');
   const { data: orders } = await sb.from('orders').select('*').order('created_at',{ascending:false}).limit(10);

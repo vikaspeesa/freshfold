@@ -499,11 +499,9 @@ async function openStoreDetail(storeId) {
     `).join('') || '<p class="text-gray-400">No orders</p>'}
   `;
   show('store-detail');
-}
-  const { data: stores } = await sb.from('stores').select('*');
-  document.getElementById('admin-store-list').innerHTML = (stores||[]).map(s => `<div class="border p-3 rounded-2xl">${s.name}</div>`).join('');
-  const { data: orders } = await sb.from('orders').select('*').order('created_at',{ascending:false}).limit(10);
-  document.getElementById('admin-order-list').innerHTML = (orders||[]).map(o => `<div class="border-b py-2 text-sm">#${o.id} • ₹${o.total} • ${o.status}</div>`).join('');
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
 }
 
 async function createStore() {

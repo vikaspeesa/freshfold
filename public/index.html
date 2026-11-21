@@ -391,6 +391,21 @@ function renderOrderList(list) {
   document.getElementById('my-orders').innerHTML = list.map(o => {
     const cancelable = canCancel(o);
     return `
+      <div data-order-id="${o.id}" class="order-item bg-white border p-4 rounded-2xl shadow-sm cursor-pointer">
+        <div class="flex justify-between items-start">
+          <div><b>#${o.id}</b><div class="text-xs text-gray-500">${o.stores?.name||''}</div></div>
+          <span class="text-xs px-2 py-1 rounded-full ${o.status==='Delivered'?'bg-green-100 text-green-700':o.status==='Cancelled'?'bg-red-100 text-red-700':'bg-teal-100 text-teal-700'}">${o.status}</span>
+        </div>
+        <div class="text-sm mt-1">₹${o.total} • ${o.type}</div>
+        ${cancelable ? `<div class="text-xs text-amber-600 mt-1">Cancel available</div>` : ''}
+      </div>`;
+  }).join('') || '<p class="text-center text-gray-400 py-10">No matching orders</p>';
+
+  document.querySelectorAll('.order-item').forEach(el => {
+    el.onclick = () => openOrderDetail(el.dataset.orderId);
+  });
+    const cancelable = canCancel(o);
+    return `
       <div onclick="openOrderDetail('${o.id}')" class="bg-white border p-4 rounded-2xl shadow-sm cursor-pointer">
         <div class="flex justify-between items-start">
           <div><b>#${o.id}</b><div class="text-xs text-gray-500">${o.stores?.name||''}</div></div>
@@ -418,12 +433,17 @@ async function loadAdminData() {
     }
     document.getElementById('admin-store-list').innerHTML = (stores || []).length
       ? stores.map(s => `
-          <div onclick="openStoreDetail('${s.id}')" class="border p-4 rounded-2xl cursor-pointer hover:bg-gray-50">
+          <div data-store-id="${s.id}" class="store-item border p-4 rounded-2xl cursor-pointer hover:bg-teal-50">
             <div class="font-medium">${s.name}</div>
-            <div class="text-xs text-gray-500">Tap to view orders & amounts</div>
+            <div class="text-xs text-gray-500">Click to view details →</div>
           </div>
         `).join('')
       : '<p class="text-gray-400">No stores found. Add one above.</p>';
+
+    // Attach click handlers safely
+    document.querySelectorAll('.store-item').forEach(el => {
+      el.onclick = () => openStoreDetail(el.dataset.storeId);
+    });
 
     const { data: orders } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(8);
     document.getElementById('admin-order-list').innerHTML = (orders || []).map(o => `
@@ -448,8 +468,12 @@ async function loadAdminData() {
 }
 
 async function openStoreDetail(storeId) {
-  const { data: store } = await sb.from('stores').select('*').eq('id', storeId).single();
-  const { data: orders } = await sb.from('orders').select('*').eq('store_id', storeId);
+  console.log('Opening store:', storeId);
+  try {
+    const { data: store, error: e1 } = await sb.from('stores').select('*').eq('id', storeId).single();
+    if (e1) return alert('Store error: ' + e1.message);
+    const { data: orders, error: e2 } = await sb.from('orders').select('*').eq('store_id', storeId);
+    if (e2) console.log('Orders error:', e2);
 
   const completed = orders?.filter(o => o.status === 'Delivered') || [];
   const inProgress = orders?.filter(o => ['Processing', 'Ready'].includes(o.status)) || [];

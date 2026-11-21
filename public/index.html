@@ -410,6 +410,29 @@ async function cancelOrder(id, fee) {
 }
 
 async function loadAdminData() {
+  try {
+    const { data: stores, error } = await sb.from('stores').select('*');
+    if (error) {
+      document.getElementById('admin-store-list').innerHTML = '<p class="text-red-500">Error loading stores: ' + error.message + '</p>';
+      return;
+    }
+    document.getElementById('admin-store-list').innerHTML = (stores || []).length
+      ? stores.map(s => `
+          <div onclick="openStoreDetail('${s.id}')" class="border p-4 rounded-2xl cursor-pointer hover:bg-gray-50">
+            <div class="font-medium">${s.name}</div>
+            <div class="text-xs text-gray-500">Tap to view orders & amounts</div>
+          </div>
+        `).join('')
+      : '<p class="text-gray-400">No stores found. Add one above.</p>';
+
+    const { data: orders } = await sb.from('orders').select('*').order('created_at', { ascending: false }).limit(8);
+    document.getElementById('admin-order-list').innerHTML = (orders || []).map(o => `
+      <div class="border-b py-2">#${o.id} • ₹${o.total} • ${o.status}</div>
+    `).join('') || '<p class="text-gray-400">No orders</p>';
+  } catch (e) {
+    document.getElementById('admin-store-list').innerHTML = '<p class="text-red-500">Failed to load</p>';
+  }
+}
   const { data: stores } = await sb.from('stores').select('*');
   document.getElementById('admin-store-list').innerHTML = (stores || []).map(s => `
     <div onclick="openStoreDetail('${s.id}')" class="border p-4 rounded-2xl cursor-pointer hover:bg-gray-50 active:bg-gray-100">
